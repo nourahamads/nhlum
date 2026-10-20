@@ -128,6 +128,7 @@ button.rec{background:var(--danger);border-color:var(--danger);color:#fff}
         </select>
         <button type="button" id="rewriteBtn">✨ تنظيف سريع</button>
         <button type="button" class="primary" id="aiBtn">🤖 تحسين لغوي بالذكاء الاصطناعي</button>
+        <button type="button" id="tplBtn">📄 قالب محضر اجتماع</button>
         <span class="status" id="aiStatus"></span>
       </div>
       <details style="margin-top:10px">
@@ -297,6 +298,46 @@ function rewrite(){
   $('out').value=res;renderDoc();
 }
 $('rewriteBtn').onclick=rewrite;
+
+/* ---------- Meeting-minutes template ---------- */
+var MINUTES_TPL=[
+'التاريخ: [اليوم / الشهر / السنة]',
+'الوقت: [من … إلى …]',
+'المكان: [مقر الاجتماع أو الرابط]',
+'رئيس الاجتماع: [الاسم]',
+'مقرر الاجتماع: [الاسم]',
+'',
+'الحضور:',
+'• [الاسم – المسمى الوظيفي]',
+'• [الاسم – المسمى الوظيفي]',
+'',
+'الغياب:',
+'• [الاسم – السبب]',
+'',
+'جدول الأعمال:',
+'1. [البند الأول]',
+'2. [البند الثاني]',
+'3. [البند الثالث]',
+'',
+'ملخص المناقشات:',
+'[اكتب هنا ما دار في الاجتماع، أو سجّله صوتيًا ثم انسخ الناتج هنا.]',
+'',
+'القرارات:',
+'1. [القرار الأول]',
+'2. [القرار الثاني]',
+'',
+'المهام والمتابعة:',
+'• [المهمة – المسؤول – موعد التسليم]',
+'• [المهمة – المسؤول – موعد التسليم]',
+'',
+'موعد الاجتماع القادم: [التاريخ والوقت]'
+].join('\n');
+$('tplBtn').onclick=function(){
+  if($('out').value.trim()&&!confirm('سيُستبدل النص الحالي في مربع الناتج بالقالب. متابعة؟'))return;
+  if(!$('title').value.trim()){$('title').value='محضر اجتماع';store.set('v2d_title','محضر اجتماع')}
+  $('out').value=MINUTES_TPL;renderDoc();
+};
+
 
 /* ---------- AI linguistic polish ---------- */
 // Set to your proxy URL (see worker.js) to offer the feature without users needing their own key.
