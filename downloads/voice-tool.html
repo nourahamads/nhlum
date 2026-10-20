@@ -20331,12 +20331,21 @@ var SR=window.SpeechRecognition||window.webkitSpeechRecognition;
 var rec=null,recording=false,wantStop=false;
 var raw=$('raw');
 if(!SR){$('warn').style.display='block';$('recBtn').disabled=true}
+else if(location.protocol==='file:'&&/iP(hone|ad|od)/.test(navigator.userAgent)){$('warn').textContent='على الآيفون لا يعمل التسجيل من ملف محمّل على الجهاز. افتح رابط الموقع في Safari بدلًا من ذلك.';$('warn').style.display='block'}
 
 function setStatus(t,on){$('statusTxt').textContent=t;$('status').classList.toggle('recording',!!on)}
 
+var IOS=/iP(hone|ad|od)/.test(navigator.userAgent)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
+var lastStart=0,quick=0;
+function setRecUI(on){
+  $('recBtn').textContent=on?'⏹ إيقاف التسجيل':'🎙️ ابدأ التسجيل';
+  $('recBtn').classList.toggle('rec',on);$('recBtn').classList.toggle('primary',!on);
+}
 function startRec(){
-  rec=new SR();rec.lang=$('lang').value;rec.continuous=true;rec.interimResults=true;
-  rec.onstart=function(){recording=true;$('recBtn').textContent='⏹ إيقاف التسجيل';$('recBtn').classList.add('rec');$('recBtn').classList.remove('primary');setStatus('جارٍ الاستماع…',true)};
+  rec=new SR();rec.lang=$('lang').value;
+  rec.continuous=!IOS;           // iOS Safari repeats/duplicates text in continuous mode
+  rec.interimResults=true;
+  rec.onstart=function(){recording=true;setRecUI(true);setStatus('جارٍ الاستماع…',true)};
   rec.onresult=function(e){
     var interim='';
     for(var i=e.resultIndex;i<e.results.length;i++){
@@ -20349,17 +20358,27 @@ function startRec(){
     raw.scrollTop=raw.scrollHeight;
   };
   rec.onerror=function(e){
-    if(e.error==='not-allowed'||e.error==='service-not-allowed'){wantStop=true;alert('لم يُسمح باستخدام الميكروفون. فعّل الإذن من إعدادات المتصفح.')}
-    else if(e.error==='no-speech'){/* keep going */}
-    else if(e.error!=='aborted'){setStatus('خطأ: '+e.error,false)}
+    if(e.error==='not-allowed'||e.error==='service-not-allowed'){
+      wantStop=true;
+      alert(IOS?'لم يُسمح بالتسجيل. على الآيفون: افتح الإعدادات ← عام ← لوحة المفاتيح ← فعّل «تفعيل الإملاء»، ثم الإعدادات ← Safari ← الميكروفون ← اسمح، وأعد المحاولة.'
+               :'لم يُسمح باستخدام الميكروفون. فعّل الإذن من إعدادات المتصفح.');
+    }
+    else if(e.error==='language-not-supported'){wantStop=true;alert('اللغة المختارة غير مدعومة في هذا المتصفح. جرّب لغة أخرى من القائمة.')}
+    else if(e.error==='no-speech'||e.error==='aborted'){/* keep going */}
+    else{setStatus('خطأ: '+e.error,false)}
   };
   rec.onend=function(){
     $('interim').textContent='';
-    if(!wantStop){try{rec.start();return}catch(x){}} // Chrome ends sessions on silence; restart
-    recording=false;$('recBtn').textContent='🎙️ ابدأ التسجيل';$('recBtn').classList.remove('rec');$('recBtn').classList.add('primary');setStatus('متوقف',false);
+    if(!wantStop){
+      // sessions end on silence; restart, but give up if it keeps ending instantly (browser refuses)
+      quick=(Date.now()-lastStart<800)?quick+1:0;
+      if(quick<4){try{lastStart=Date.now();rec.start();return}catch(x){}}
+      setStatus('توقف التسجيل، اضغط «ابدأ التسجيل» للمتابعة',false);
+    }
+    recording=false;setRecUI(false);if(wantStop)setStatus('متوقف',false);
   };
-  wantStop=false;
-  try{rec.start()}catch(x){}
+  wantStop=false;quick=0;lastStart=Date.now();
+  try{rec.start()}catch(x){setStatus('تعذّر بدء التسجيل',false)}
 }
 $('recBtn').onclick=function(){
   if(recording){wantStop=true;rec.stop()}else startRec();
@@ -20384,7 +20403,7 @@ function cleanSentence(s){
 function splitSentences(text){
   var parts=[];
   text.split(/\n+/).forEach(function(line){
-    line.split(/(?<=[.!؟?])\s+/).forEach(function(p){p=cleanSentence(p);if(p.length>1)parts.push(p)});
+    line.replace(/([.!؟?])\s+/g,'$1\n').split('\n').forEach(function(p){p=cleanSentence(p);if(p.length>1)parts.push(p)});
   });
   return parts;
 }
