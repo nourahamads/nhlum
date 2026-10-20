@@ -123,9 +123,19 @@ button.rec{background:var(--danger);border-color:var(--danger);color:#fff}
           <option value="numbered">قائمة مرقمة</option>
           <option value="formal">أسلوب رسمي</option>
         </select>
-        <button type="button" class="primary" id="rewriteBtn">✨ أعد الصياغة</button>
+        <button type="button" id="rewriteBtn">✨ تنظيف سريع</button>
+        <button type="button" class="primary" id="aiBtn">🤖 تحسين لغوي بالذكاء الاصطناعي</button>
+        <span class="status" id="aiStatus"></span>
       </div>
-      <p class="hint">تنظّف الأداة النص من حشو الكلام والتكرار، وتضيف علامات الترقيم وتقسّمه. يمكنك تعديل الناتج يدويًا قبل التصدير.</p>
+      <details style="margin-top:10px">
+        <summary class="status" style="cursor:pointer">إعدادات الذكاء الاصطناعي</summary>
+        <label for="aiKey">مفتاح Anthropic API (يُحفظ في متصفحك فقط)</label>
+        <input type="text" id="aiKey" placeholder="sk-ant-…" autocomplete="off" dir="ltr">
+        <label for="aiCode">رمز الدخول (إن كانت جهتك تزوّدك بخدمة جاهزة)</label>
+        <input type="text" id="aiCode" autocomplete="off" dir="ltr">
+        <p class="hint">إن كان للموقع خدمة جاهزة (انظر <code>V2D_ENDPOINT</code>) فلا تحتاج مفتاحًا، وإلا فألصق مفتاحك الخاص.</p>
+      </details>
+      <p class="hint">«تنظيف سريع» يعمل بدون إنترنت ويحذف الحشو والتكرار. «التحسين اللغوي» يعيد كتابة كلامك بلغة سليمة وسلسة مع الحفاظ على معناه. يمكنك تعديل الناتج قبل التصدير.</p>
       <textarea id="out" placeholder="يظهر النص بعد إعادة الصياغة هنا…"></textarea>
     </section>
 
@@ -286,6 +296,52 @@ function rewrite(){
   $('out').value=res;renderDoc();
 }
 $('rewriteBtn').onclick=rewrite;
+
+/* ---------- AI linguistic polish ---------- */
+// Set to your proxy URL (see worker.js) to offer the feature without users needing their own key.
+var V2D_ENDPOINT='';
+['aiKey','aiCode'].forEach(function(id){
+  var v=store.get('v2d_'+id);if(v)$(id).value=v;
+  $(id).addEventListener('input',function(){store.set('v2d_'+id,$(id).value.trim())});
+});
+var AI_SYSTEM='أنت محرر لغوي محترف. ستتلقى نصًا مفرّغًا من تسجيل صوتي. أعد كتابته بلغة سليمة وسلسة وواضحة مع الحفاظ التام على المعنى والمعلومات والأرقام والأسماء. صحّح الأخطاء النحوية والإملائية وأخطاء التفريغ الواضحة، واحذف حشو الكلام والتكرار، وحوّل اللهجة العامية إلى فصحى مبسطة إن كان النص عربيًا، وأضف علامات الترقيم. لا تضف معلومات جديدة ولا تلخّص ولا تعلّق. اكتب بنفس لغة النص الأصلية. أعد النص المحسّن فقط دون أي مقدمة أو شرح.';
+var AI_STYLES={
+  para:'نسّق الناتج في فقرات قصيرة مفصولة بسطر فارغ.',
+  formal:'استخدم أسلوبًا رسميًا مهنيًا، ونسّق الناتج في فقرات قصيرة مفصولة بسطر فارغ.',
+  bullets:'نسّق الناتج كنقاط، كل نقطة في سطر يبدأ بالرمز • .',
+  numbered:'نسّق الناتج كقائمة مرقمة، كل بند في سطر يبدأ برقم ثم نقطة.'
+};
+function aiPolish(text,style){
+  var instr=AI_SYSTEM+' '+(AI_STYLES[style]||AI_STYLES.para);
+  if(V2D_ENDPOINT){
+    return fetch(V2D_ENDPOINT,{method:'POST',headers:{'Content-Type':'application/json','X-Access-Code':$('aiCode').value.trim()},
+      body:JSON.stringify({text:text,style:style})}).then(function(r){
+        return r.json().then(function(j){if(!r.ok)throw new Error(j.error||('HTTP '+r.status));return j.text});
+      });
+  }
+  var key=$('aiKey').value.trim();
+  if(!key) return Promise.reject(new Error('أدخل مفتاح Anthropic API من «إعدادات الذكاء الاصطناعي».'));
+  return fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{
+    'content-type':'application/json','x-api-key':key,'anthropic-version':'2023-06-01',
+    'anthropic-dangerous-direct-browser-access':'true'},
+    body:JSON.stringify({model:'claude-sonnet-5-5',max_tokens:4096,system:instr,messages:[{role:'user',content:text}]})
+  }).then(function(r){return r.json().then(function(j){
+    if(!r.ok)throw new Error((j.error&&j.error.message)||('HTTP '+r.status));
+    return (j.content||[]).map(function(c){return c.text||''}).join('').trim();
+  })});
+}
+$('aiBtn').onclick=function(){
+  var text=raw.value.trim();
+  if(!text){alert('لا يوجد نص لتحسينه. سجّل صوتك أو اكتب نصًا أولًا.');return}
+  var btn=$('aiBtn');btn.disabled=true;$('aiStatus').textContent='جارٍ التحسين…';
+  aiPolish(text,$('mode').value).then(function(res){
+    if(!res)throw new Error('استجابة فارغة');
+    $('out').value=res;renderDoc();$('aiStatus').textContent='تم التحسين ✓';
+  }).catch(function(e){
+    $('aiStatus').textContent='';alert('تعذّر التحسين: '+e.message+'\nيمكنك استخدام «تنظيف سريع» بدلًا منه.');
+  }).then(function(){btn.disabled=false});
+};
+
 
 /* ---------- Document model ---------- */
 function esc(s){return String(s).replace(/[&<>"]/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]})}
