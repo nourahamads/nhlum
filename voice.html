@@ -128,6 +128,7 @@ button.rec{background:var(--danger);border-color:var(--danger);color:#fff}
         </select>
         <button type="button" id="rewriteBtn">✨ تنظيف سريع</button>
         <button type="button" class="primary" id="aiBtn">🤖 تحسين لغوي بالذكاء الاصطناعي</button>
+        <button type="button" id="tplBtn">📄 قالب محضر اجتماع</button>
         <span class="status" id="aiStatus"></span>
       </div>
       <details style="margin-top:10px">
@@ -156,6 +157,7 @@ button.rec{background:var(--danger);border-color:var(--danger);color:#fff}
 </main>
 
 <script src="assets/pptxgen.bundle.js"></script>
+<script src="assets/docx.iife.js"></script>
 <script>
 (function(){
 'use strict';
@@ -214,12 +216,21 @@ var SR=window.SpeechRecognition||window.webkitSpeechRecognition;
 var rec=null,recording=false,wantStop=false;
 var raw=$('raw');
 if(!SR){$('warn').style.display='block';$('recBtn').disabled=true}
+else if(location.protocol==='file:'&&/iP(hone|ad|od)/.test(navigator.userAgent)){$('warn').textContent='على الآيفون لا يعمل التسجيل من ملف محمّل على الجهاز. افتح رابط الموقع في Safari بدلًا من ذلك.';$('warn').style.display='block'}
 
 function setStatus(t,on){$('statusTxt').textContent=t;$('status').classList.toggle('recording',!!on)}
 
+var IOS=/iP(hone|ad|od)/.test(navigator.userAgent)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
+var lastStart=0,quick=0;
+function setRecUI(on){
+  $('recBtn').textContent=on?'⏹ إيقاف التسجيل':'🎙️ ابدأ التسجيل';
+  $('recBtn').classList.toggle('rec',on);$('recBtn').classList.toggle('primary',!on);
+}
 function startRec(){
-  rec=new SR();rec.lang=$('lang').value;rec.continuous=true;rec.interimResults=true;
-  rec.onstart=function(){recording=true;$('recBtn').textContent='⏹ إيقاف التسجيل';$('recBtn').classList.add('rec');$('recBtn').classList.remove('primary');setStatus('جارٍ الاستماع…',true)};
+  rec=new SR();rec.lang=$('lang').value;
+  rec.continuous=!IOS;           // iOS Safari repeats/duplicates text in continuous mode
+  rec.interimResults=true;
+  rec.onstart=function(){recording=true;setRecUI(true);setStatus('جارٍ الاستماع…',true)};
   rec.onresult=function(e){
     var interim='';
     for(var i=e.resultIndex;i<e.results.length;i++){
@@ -232,17 +243,27 @@ function startRec(){
     raw.scrollTop=raw.scrollHeight;
   };
   rec.onerror=function(e){
-    if(e.error==='not-allowed'||e.error==='service-not-allowed'){wantStop=true;alert('لم يُسمح باستخدام الميكروفون. فعّل الإذن من إعدادات المتصفح.')}
-    else if(e.error==='no-speech'){/* keep going */}
-    else if(e.error!=='aborted'){setStatus('خطأ: '+e.error,false)}
+    if(e.error==='not-allowed'||e.error==='service-not-allowed'){
+      wantStop=true;
+      alert(IOS?'لم يُسمح بالتسجيل. على الآيفون: افتح الإعدادات ← عام ← لوحة المفاتيح ← فعّل «تفعيل الإملاء»، ثم الإعدادات ← Safari ← الميكروفون ← اسمح، وأعد المحاولة.'
+               :'لم يُسمح باستخدام الميكروفون. فعّل الإذن من إعدادات المتصفح.');
+    }
+    else if(e.error==='language-not-supported'){wantStop=true;alert('اللغة المختارة غير مدعومة في هذا المتصفح. جرّب لغة أخرى من القائمة.')}
+    else if(e.error==='no-speech'||e.error==='aborted'){/* keep going */}
+    else{setStatus('خطأ: '+e.error,false)}
   };
   rec.onend=function(){
     $('interim').textContent='';
-    if(!wantStop){try{rec.start();return}catch(x){}} // Chrome ends sessions on silence; restart
-    recording=false;$('recBtn').textContent='🎙️ ابدأ التسجيل';$('recBtn').classList.remove('rec');$('recBtn').classList.add('primary');setStatus('متوقف',false);
+    if(!wantStop){
+      // sessions end on silence; restart, but give up if it keeps ending instantly (browser refuses)
+      quick=(Date.now()-lastStart<800)?quick+1:0;
+      if(quick<4){try{lastStart=Date.now();rec.start();return}catch(x){}}
+      setStatus('توقف التسجيل، اضغط «ابدأ التسجيل» للمتابعة',false);
+    }
+    recording=false;setRecUI(false);if(wantStop)setStatus('متوقف',false);
   };
-  wantStop=false;
-  try{rec.start()}catch(x){}
+  wantStop=false;quick=0;lastStart=Date.now();
+  try{rec.start()}catch(x){setStatus('تعذّر بدء التسجيل',false)}
 }
 $('recBtn').onclick=function(){
   if(recording){wantStop=true;rec.stop()}else startRec();
@@ -267,7 +288,7 @@ function cleanSentence(s){
 function splitSentences(text){
   var parts=[];
   text.split(/\n+/).forEach(function(line){
-    line.split(/(?<=[.!؟?])\s+/).forEach(function(p){p=cleanSentence(p);if(p.length>1)parts.push(p)});
+    line.replace(/([.!؟?])\s+/g,'$1\n').split('\n').forEach(function(p){p=cleanSentence(p);if(p.length>1)parts.push(p)});
   });
   return parts;
 }
@@ -296,6 +317,46 @@ function rewrite(){
   $('out').value=res;renderDoc();
 }
 $('rewriteBtn').onclick=rewrite;
+
+/* ---------- Meeting-minutes template ---------- */
+var MINUTES_TPL=[
+'التاريخ: [اليوم / الشهر / السنة]',
+'الوقت: [من … إلى …]',
+'المكان: [مقر الاجتماع أو الرابط]',
+'رئيس الاجتماع: [الاسم]',
+'مقرر الاجتماع: [الاسم]',
+'',
+'الحضور:',
+'• [الاسم – المسمى الوظيفي]',
+'• [الاسم – المسمى الوظيفي]',
+'',
+'الغياب:',
+'• [الاسم – السبب]',
+'',
+'جدول الأعمال:',
+'1. [البند الأول]',
+'2. [البند الثاني]',
+'3. [البند الثالث]',
+'',
+'ملخص المناقشات:',
+'[اكتب هنا ما دار في الاجتماع، أو سجّله صوتيًا ثم انسخ الناتج هنا.]',
+'',
+'القرارات:',
+'1. [القرار الأول]',
+'2. [القرار الثاني]',
+'',
+'المهام والمتابعة:',
+'• [المهمة – المسؤول – موعد التسليم]',
+'• [المهمة – المسؤول – موعد التسليم]',
+'',
+'موعد الاجتماع القادم: [التاريخ والوقت]'
+].join('\n');
+$('tplBtn').onclick=function(){
+  if($('out').value.trim()&&!confirm('سيُستبدل النص الحالي في مربع الناتج بالقالب. متابعة؟'))return;
+  if(!$('title').value.trim()){$('title').value='محضر اجتماع';store.set('v2d_title','محضر اجتماع')}
+  $('out').value=MINUTES_TPL;renderDoc();
+};
+
 
 /* ---------- AI linguistic polish ---------- */
 // Set to your proxy URL (see worker.js) to offer the feature without users needing their own key.
@@ -420,31 +481,37 @@ $('pdfBtn').onclick=function(){
   setTimeout(function(){document.title=old},500);
 };
 
-/* ---------- Word (.doc as MHTML so the logo is embedded) ---------- */
-function wrapB64(s){return s.replace(/(.{76})/g,'$1\r\n')}
+/* ---------- Word (.docx, real format; logo embedded) ---------- */
+function dataUrlToBytes(u){var b=atob(u.split(',')[1]),a=new Uint8Array(b.length);for(var i=0;i<b.length;i++)a[i]=b.charCodeAt(i);return a}
 $('docBtn').onclick=function(){
   if(needText()) return;
-  var title=$('title').value.trim()||'مستند',ent=$('entity').value.trim();
-  var html='<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" dir="rtl"><head><meta charset="utf-8">'+
-    '<style>@page{size:A4;margin:2cm}body{font-family:Arial,sans-serif;direction:rtl;text-align:right}'+
-    'h1{font-size:24pt;color:#1a1a1f;margin:0}.d{color:#777;font-size:10pt}p,li{font-size:13pt;line-height:1.8}.e{font-size:15pt;color:#4b3a6b;font-weight:bold}</style></head><body dir="rtl">';
+  if(typeof docx==='undefined'){alert('تعذّر تحميل مكتبة Word. حدّث الصفحة وأعد المحاولة.');return}
+  var D=docx,title=$('title').value.trim()||'مستند',ent=$('entity').value.trim();
+  var FONT='Arial';
+  function run(t,o){o=o||{};return new D.TextRun({text:t,font:FONT,rightToLeft:true,size:o.size||26,bold:o.bold,color:o.color})}
+  function para(children,o){o=o||{};return new D.Paragraph(Object.assign({bidirectional:true,alignment:D.AlignmentType.RIGHT,spacing:{after:o.after||160,line:360},children:children},o.extra||{}))}
+  var kids=[];
   if(state.logo||ent){
-    var lh=60,lw=Math.round(lh*state.logoW/state.logoH);
-    html+='<table dir="rtl" width="100%" style="border-bottom:3px solid #7a5fa3;margin-bottom:14pt"><tr>'+
-      (state.logo?'<td width="'+(lw+20)+'"><img src="cid:logo.png" width="'+lw+'" height="'+lh+'"></td>':'')+
-      '<td class="e">'+esc(ent)+'</td></tr></table>';
+    var lh=64,lw=Math.round(lh*state.logoW/state.logoH),cells=[];
+    var none={style:D.BorderStyle.NONE,size:0,color:'FFFFFF'};
+    var borders={top:none,left:none,right:none,bottom:{style:D.BorderStyle.SINGLE,size:18,color:'7A5FA3'}};
+    if(state.logo) cells.push(new D.TableCell({borders:borders,width:{size:2200,type:D.WidthType.DXA},children:[
+      para([new D.ImageRun({data:dataUrlToBytes(state.logo),transformation:{width:lw,height:lh}})])]}));
+    cells.push(new D.TableCell({borders:borders,verticalAlign:D.VerticalAlign.CENTER,width:{size:6800,type:D.WidthType.DXA},children:[para([run(ent,{size:30,bold:true,color:'4B3A6B'})])]}));
+    kids.push(new D.Table({visuallyRightToLeft:true,width:{size:9000,type:D.WidthType.DXA},columnWidths:state.logo?[2200,6800]:[9000],
+      borders:{top:none,bottom:none,left:none,right:none,insideHorizontal:none,insideVertical:none},rows:[new D.TableRow({children:cells})]}));
+    kids.push(para([run(' ')]));
   }
-  html+='<h1>'+esc(title)+'</h1><p class="d">'+esc(today())+'</p>'+bodyHtml().replace(/<p class="empty">.*?<\/p>/,'')+'</body></html>';
-  var b='----=_NextPart_'+Date.now();
-  var mht='MIME-Version: 1.0\r\nContent-Type: multipart/related; boundary="'+b+'"; type="text/html"\r\n\r\n'+
-    '--'+b+'\r\nContent-Type: text/html; charset="utf-8"\r\nContent-Transfer-Encoding: base64\r\nContent-Location: file:///doc.htm\r\n\r\n'+
-    wrapB64(btoa(unescape(encodeURIComponent(html))))+'\r\n';
-  if(state.logo){
-    mht+='--'+b+'\r\nContent-Type: image/png\r\nContent-Transfer-Encoding: base64\r\nContent-Location: cid:logo.png\r\n\r\n'+
-      wrapB64(state.logo.split(',')[1])+'\r\n';
-  }
-  mht+='--'+b+'--';
-  download(new Blob([mht],{type:'application/msword'}),fileName('doc'));
+  kids.push(para([run(title,{size:48,bold:true,color:'1A1A1F'})],{after:60}));
+  kids.push(para([run(today(),{size:20,color:'777777'})],{after:300}));
+  blocks().forEach(function(b){
+    if(b.type==='p'){kids.push(para([run(b.items[0])]));return}
+    b.items.forEach(function(t,i){
+      kids.push(para([run(b.type==='ol'?(i+1)+'. '+t:'• '+t)],{extra:{indent:{right:360}}}));
+    });
+  });
+  var doc=new D.Document({sections:[{properties:{page:{margin:{top:1134,bottom:1134,left:1134,right:1134}}},children:kids}]});
+  D.Packer.toBlob(doc).then(function(blob){download(blob,fileName('docx'))}).catch(function(e){alert('تعذّر إنشاء الملف: '+e.message)});
 };
 
 /* ---------- PowerPoint ---------- */
