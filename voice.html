@@ -156,6 +156,7 @@ button.rec{background:var(--danger);border-color:var(--danger);color:#fff}
 </main>
 
 <script src="assets/pptxgen.bundle.js"></script>
+<script src="assets/docx.iife.js"></script>
 <script>
 (function(){
 'use strict';
@@ -420,31 +421,37 @@ $('pdfBtn').onclick=function(){
   setTimeout(function(){document.title=old},500);
 };
 
-/* ---------- Word (.doc as MHTML so the logo is embedded) ---------- */
-function wrapB64(s){return s.replace(/(.{76})/g,'$1\r\n')}
+/* ---------- Word (.docx, real format; logo embedded) ---------- */
+function dataUrlToBytes(u){var b=atob(u.split(',')[1]),a=new Uint8Array(b.length);for(var i=0;i<b.length;i++)a[i]=b.charCodeAt(i);return a}
 $('docBtn').onclick=function(){
   if(needText()) return;
-  var title=$('title').value.trim()||'مستند',ent=$('entity').value.trim();
-  var html='<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" dir="rtl"><head><meta charset="utf-8">'+
-    '<style>@page{size:A4;margin:2cm}body{font-family:Arial,sans-serif;direction:rtl;text-align:right}'+
-    'h1{font-size:24pt;color:#1a1a1f;margin:0}.d{color:#777;font-size:10pt}p,li{font-size:13pt;line-height:1.8}.e{font-size:15pt;color:#4b3a6b;font-weight:bold}</style></head><body dir="rtl">';
+  if(typeof docx==='undefined'){alert('تعذّر تحميل مكتبة Word. حدّث الصفحة وأعد المحاولة.');return}
+  var D=docx,title=$('title').value.trim()||'مستند',ent=$('entity').value.trim();
+  var FONT='Arial';
+  function run(t,o){o=o||{};return new D.TextRun({text:t,font:FONT,rightToLeft:true,size:o.size||26,bold:o.bold,color:o.color})}
+  function para(children,o){o=o||{};return new D.Paragraph(Object.assign({bidirectional:true,alignment:D.AlignmentType.RIGHT,spacing:{after:o.after||160,line:360},children:children},o.extra||{}))}
+  var kids=[];
   if(state.logo||ent){
-    var lh=60,lw=Math.round(lh*state.logoW/state.logoH);
-    html+='<table dir="rtl" width="100%" style="border-bottom:3px solid #7a5fa3;margin-bottom:14pt"><tr>'+
-      (state.logo?'<td width="'+(lw+20)+'"><img src="cid:logo.png" width="'+lw+'" height="'+lh+'"></td>':'')+
-      '<td class="e">'+esc(ent)+'</td></tr></table>';
+    var lh=64,lw=Math.round(lh*state.logoW/state.logoH),cells=[];
+    var none={style:D.BorderStyle.NONE,size:0,color:'FFFFFF'};
+    var borders={top:none,left:none,right:none,bottom:{style:D.BorderStyle.SINGLE,size:18,color:'7A5FA3'}};
+    if(state.logo) cells.push(new D.TableCell({borders:borders,width:{size:2200,type:D.WidthType.DXA},children:[
+      para([new D.ImageRun({data:dataUrlToBytes(state.logo),transformation:{width:lw,height:lh}})])]}));
+    cells.push(new D.TableCell({borders:borders,verticalAlign:D.VerticalAlign.CENTER,width:{size:6800,type:D.WidthType.DXA},children:[para([run(ent,{size:30,bold:true,color:'4B3A6B'})])]}));
+    kids.push(new D.Table({visuallyRightToLeft:true,width:{size:9000,type:D.WidthType.DXA},columnWidths:state.logo?[2200,6800]:[9000],
+      borders:{top:none,bottom:none,left:none,right:none,insideHorizontal:none,insideVertical:none},rows:[new D.TableRow({children:cells})]}));
+    kids.push(para([run(' ')]));
   }
-  html+='<h1>'+esc(title)+'</h1><p class="d">'+esc(today())+'</p>'+bodyHtml().replace(/<p class="empty">.*?<\/p>/,'')+'</body></html>';
-  var b='----=_NextPart_'+Date.now();
-  var mht='MIME-Version: 1.0\r\nContent-Type: multipart/related; boundary="'+b+'"; type="text/html"\r\n\r\n'+
-    '--'+b+'\r\nContent-Type: text/html; charset="utf-8"\r\nContent-Transfer-Encoding: base64\r\nContent-Location: file:///doc.htm\r\n\r\n'+
-    wrapB64(btoa(unescape(encodeURIComponent(html))))+'\r\n';
-  if(state.logo){
-    mht+='--'+b+'\r\nContent-Type: image/png\r\nContent-Transfer-Encoding: base64\r\nContent-Location: cid:logo.png\r\n\r\n'+
-      wrapB64(state.logo.split(',')[1])+'\r\n';
-  }
-  mht+='--'+b+'--';
-  download(new Blob([mht],{type:'application/msword'}),fileName('doc'));
+  kids.push(para([run(title,{size:48,bold:true,color:'1A1A1F'})],{after:60}));
+  kids.push(para([run(today(),{size:20,color:'777777'})],{after:300}));
+  blocks().forEach(function(b){
+    if(b.type==='p'){kids.push(para([run(b.items[0])]));return}
+    b.items.forEach(function(t,i){
+      kids.push(para([run(b.type==='ol'?(i+1)+'. '+t:'• '+t)],{extra:{indent:{right:360}}}));
+    });
+  });
+  var doc=new D.Document({sections:[{properties:{page:{margin:{top:1134,bottom:1134,left:1134,right:1134}}},children:kids}]});
+  D.Packer.toBlob(doc).then(function(blob){download(blob,fileName('docx'))}).catch(function(e){alert('تعذّر إنشاء الملف: '+e.message)});
 };
 
 /* ---------- PowerPoint ---------- */
