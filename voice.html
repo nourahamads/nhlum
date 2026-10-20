@@ -145,7 +145,7 @@ button.rec{background:var(--danger);border-color:var(--danger);color:#fff}
   </div>
 </main>
 
-<script src="https://cdnjs.cloudflare.com/ajax/libs/pptxgenjs/3.12.0/pptxgen.bundle.js"></script>
+<script src="assets/pptxgen.bundle.js"></script>
 <script>
 (function(){
 'use strict';
@@ -377,7 +377,7 @@ $('docBtn').onclick=function(){
 /* ---------- PowerPoint ---------- */
 $('pptBtn').onclick=function(){
   if(needText()) return;
-  if(typeof PptxGenJS==='undefined'){alert('تعذّر تحميل مكتبة PowerPoint. تحقق من اتصال الإنترنت وأعد المحاولة.');return}
+  if(typeof PptxGenJS==='undefined'){alert('تعذّر تحميل مكتبة PowerPoint. حدّث الصفحة وأعد المحاولة.');return}
   var title=$('title').value.trim()||'مستند',ent=$('entity').value.trim();
   var p=new PptxGenJS();p.layout='LAYOUT_WIDE'; // 13.33 x 7.5 in
   p.rtlMode=true;
