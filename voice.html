@@ -1,0 +1,427 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>صوتي إلى مستند | تفريغ الصوت وإعادة الصياغة</title>
+<meta name="description" content="سجّل صوتك، حوّله إلى نص، أعد صياغته، أضف شعار الجهة والعنوان ثم حمّله PDF أو PowerPoint أو Word.">
+<meta name="theme-color" content="#0a0a0b">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Amiri:wght@400;700&family=IBM+Plex+Sans+Arabic:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#09090b;--panel:#111115;--panel2:#17171c;--line:rgba(255,255,255,.12);
+  --text:#f3f0f7;--muted:#a29fab;--violet:#7a5fa3;--lilac:#c9b8e6;--danger:#e0606f;--ok:#6fcf97;
+  --serif:'Amiri','Noto Naskh Arabic',serif;
+  --sans:'IBM Plex Sans Arabic',system-ui,-apple-system,'Segoe UI',Tahoma,sans-serif;
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--bg);color:var(--text);font-family:var(--sans);line-height:1.7}
+a{color:var(--lilac)}
+header.top{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 20px;border-bottom:1px solid var(--line)}
+header.top h1{font-family:var(--serif);font-size:1.5rem;margin:0;color:var(--lilac)}
+header.top a{font-size:.9rem;text-decoration:none;color:var(--muted)}
+main{max-width:1200px;margin:0 auto;padding:20px 16px 60px;display:grid;grid-template-columns:320px 1fr;gap:20px}
+@media(max-width:900px){main{grid-template-columns:1fr}}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:18px}
+.card h2{font-size:1.05rem;margin:0 0 12px;color:var(--lilac);font-weight:600}
+label{display:block;font-size:.85rem;color:var(--muted);margin:12px 0 4px}
+input[type=text],select,textarea{width:100%;background:var(--panel2);border:1px solid var(--line);color:var(--text);border-radius:10px;padding:10px 12px;font:inherit}
+textarea{resize:vertical;min-height:180px;line-height:1.9}
+input:focus,select:focus,textarea:focus{outline:2px solid var(--violet);outline-offset:1px}
+button{font:inherit;cursor:pointer;border-radius:10px;border:1px solid var(--line);background:var(--panel2);color:var(--text);padding:10px 16px;transition:.15s}
+button:hover:not(:disabled){border-color:var(--lilac)}
+button:disabled{opacity:.45;cursor:not-allowed}
+button.primary{background:var(--violet);border-color:var(--violet);color:#fff}
+button.rec{background:var(--danger);border-color:var(--danger);color:#fff}
+.row{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+.stack{display:flex;flex-direction:column;gap:20px;min-width:0}
+.logo-box{display:flex;align-items:center;gap:12px;margin-top:6px}
+.logo-prev{width:84px;height:84px;border:1px dashed var(--line);border-radius:10px;display:grid;place-items:center;overflow:hidden;background:var(--panel2);color:var(--muted);font-size:.75rem;text-align:center}
+.logo-prev img{max-width:100%;max-height:100%;object-fit:contain}
+.status{font-size:.9rem;color:var(--muted)}
+.dot{display:inline-block;width:10px;height:10px;border-radius:50%;background:var(--muted);margin-inline-end:6px}
+.recording .dot{background:var(--danger);animation:pulse 1s infinite}
+@keyframes pulse{50%{opacity:.25}}
+.interim{color:var(--muted);font-size:.95rem;min-height:1.7em;margin-top:6px}
+.warn{background:rgba(224,96,111,.12);border:1px solid var(--danger);color:#ffd0d5;border-radius:10px;padding:10px 12px;font-size:.9rem;display:none}
+.export button{flex:1;min-width:130px}
+.hint{font-size:.8rem;color:var(--muted);margin-top:8px}
+/* Document preview */
+#doc{background:#fff;color:#1a1a1f;border-radius:6px;padding:40px 44px;min-height:360px;font-family:var(--sans)}
+#doc .dhead{display:flex;align-items:center;gap:16px;border-bottom:3px solid #7a5fa3;padding-bottom:14px;margin-bottom:22px}
+#doc .dhead img{max-height:72px;max-width:160px;object-fit:contain}
+#doc .dhead .ent{font-size:1.1rem;font-weight:600;color:#4b3a6b}
+#doc h3{font-family:var(--serif);font-size:2rem;margin:0 0 4px;color:#1a1a1f;line-height:1.4}
+#doc .date{color:#777;font-size:.85rem;margin-bottom:20px}
+#doc p{margin:0 0 14px;font-size:1.05rem;line-height:2}
+#doc ul,#doc ol{margin:0 0 14px;padding-inline-start:26px;font-size:1.05rem;line-height:2}
+#doc .empty{color:#aaa}
+@media print{
+  @page{size:A4;margin:16mm}
+  body{background:#fff}
+  header.top,main>aside,.stack>.card:not(#previewCard),#previewCard>h2,#previewCard>.hint{display:none!important}
+  main{display:block;padding:0;max-width:none}
+  #previewCard{border:0;padding:0;background:#fff}
+  #doc{padding:0;border-radius:0}
+}
+</style>
+</head>
+<body>
+<header class="top">
+  <h1>صوتي إلى مستند</h1>
+  <a href="index.html">← العودة للموقع</a>
+</header>
+
+<main>
+  <aside class="card">
+    <h2>بيانات المستند</h2>
+    <label>شعار الجهة</label>
+    <div class="logo-box">
+      <div class="logo-prev" id="logoPrev">لا يوجد شعار</div>
+      <div>
+        <input type="file" id="logoFile" accept="image/*" hidden>
+        <button type="button" id="logoBtn">رفع الشعار</button>
+        <button type="button" id="logoRm" hidden>إزالة</button>
+      </div>
+    </div>
+    <label for="entity">اسم الجهة</label>
+    <input type="text" id="entity" placeholder="مثال: شركة النور">
+    <label for="title">عنوان المستند</label>
+    <input type="text" id="title" placeholder="مثال: محضر اجتماع الأسبوع">
+    <label for="lang">لغة التسجيل</label>
+    <select id="lang">
+      <option value="ar-SA">العربية (السعودية)</option>
+      <option value="ar-EG">العربية (مصر)</option>
+      <option value="ar-AE">العربية (الإمارات)</option>
+      <option value="ar-KW">العربية (الكويت)</option>
+      <option value="ar-JO">العربية (الأردن)</option>
+      <option value="en-US">English (US)</option>
+    </select>
+    <p class="hint">تُحفظ بيانات الجهة والشعار في متصفحك فقط ولا تُرفع لأي خادم.</p>
+  </aside>
+
+  <div class="stack">
+    <section class="card">
+      <h2>1. التسجيل والتفريغ</h2>
+      <div class="warn" id="warn">متصفحك لا يدعم التعرف على الصوت. استخدم Google Chrome أو Microsoft Edge، أو اكتب/الصق النص يدويًا في المربع.</div>
+      <div class="row">
+        <button type="button" class="primary" id="recBtn">🎙️ ابدأ التسجيل</button>
+        <button type="button" id="clearBtn">مسح النص</button>
+        <span class="status" id="status"><span class="dot"></span><span id="statusTxt">جاهز</span></span>
+      </div>
+      <div class="interim" id="interim"></div>
+      <label for="raw">النص المفرّغ (يمكنك تعديله)</label>
+      <textarea id="raw" placeholder="سيظهر هنا ما تقوله…"></textarea>
+    </section>
+
+    <section class="card">
+      <h2>2. إعادة الصياغة</h2>
+      <div class="row">
+        <select id="mode" style="max-width:240px">
+          <option value="para">فقرات منظمة</option>
+          <option value="bullets">نقاط</option>
+          <option value="numbered">قائمة مرقمة</option>
+          <option value="formal">أسلوب رسمي</option>
+        </select>
+        <button type="button" class="primary" id="rewriteBtn">✨ أعد الصياغة</button>
+      </div>
+      <p class="hint">تنظّف الأداة النص من حشو الكلام والتكرار، وتضيف علامات الترقيم وتقسّمه. يمكنك تعديل الناتج يدويًا قبل التصدير.</p>
+      <textarea id="out" placeholder="يظهر النص بعد إعادة الصياغة هنا…"></textarea>
+    </section>
+
+    <section class="card" id="previewCard">
+      <h2>3. المعاينة والتحميل</h2>
+      <div id="doc"></div>
+      <div class="row export" style="margin-top:14px">
+        <button type="button" class="primary" id="pdfBtn">⬇️ PDF</button>
+        <button type="button" class="primary" id="pptBtn">⬇️ PowerPoint</button>
+        <button type="button" class="primary" id="docBtn">⬇️ Word</button>
+      </div>
+      <p class="hint">لتحميل PDF: اختر «حفظ كـ PDF» (Save as PDF) في نافذة الطباعة.</p>
+    </section>
+  </div>
+</main>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pptxgenjs/3.12.0/pptxgen.bundle.js"></script>
+<script>
+(function(){
+'use strict';
+var $=function(id){return document.getElementById(id)};
+var state={logo:null,logoW:1,logoH:1};
+var store={
+  get:function(k){try{return localStorage.getItem(k)}catch(e){return null}},
+  set:function(k,v){try{localStorage.setItem(k,v)}catch(e){}},
+  del:function(k){try{localStorage.removeItem(k)}catch(e){}}
+};
+
+/* ---------- Settings persistence ---------- */
+['entity','title','lang'].forEach(function(id){
+  var v=store.get('v2d_'+id); if(v!==null) $(id).value=v;
+  $(id).addEventListener('input',function(){store.set('v2d_'+id,$(id).value);renderDoc()});
+  $(id).addEventListener('change',function(){store.set('v2d_'+id,$(id).value)});
+});
+
+/* ---------- Logo ---------- */
+function setLogo(dataUrl){
+  if(!dataUrl){
+    state.logo=null;$('logoPrev').textContent='لا يوجد شعار';$('logoRm').hidden=true;store.del('v2d_logo');renderDoc();return;
+  }
+  var im=new Image();
+  im.onload=function(){
+    state.logo=dataUrl;state.logoW=im.naturalWidth;state.logoH=im.naturalHeight;
+    $('logoPrev').innerHTML='';var i=document.createElement('img');i.src=dataUrl;i.alt='الشعار';$('logoPrev').appendChild(i);
+    $('logoRm').hidden=false;renderDoc();
+  };
+  im.src=dataUrl;
+}
+$('logoBtn').onclick=function(){$('logoFile').click()};
+$('logoRm').onclick=function(){$('logoFile').value='';setLogo(null)};
+$('logoFile').onchange=function(e){
+  var f=e.target.files[0]; if(!f) return;
+  var r=new FileReader();
+  r.onload=function(){
+    // downscale to keep exports light; PNG keeps transparency
+    var im=new Image();
+    im.onload=function(){
+      var max=600,s=Math.min(1,max/Math.max(im.naturalWidth,im.naturalHeight));
+      var c=document.createElement('canvas');c.width=Math.round(im.naturalWidth*s);c.height=Math.round(im.naturalHeight*s);
+      c.getContext('2d').drawImage(im,0,0,c.width,c.height);
+      var url=c.toDataURL('image/png');
+      store.set('v2d_logo',url);setLogo(url);
+    };
+    im.onerror=function(){alert('تعذّر قراءة الصورة')};
+    im.src=r.result;
+  };
+  r.readAsDataURL(f);
+};
+var saved=store.get('v2d_logo'); if(saved) setLogo(saved);
+
+/* ---------- Speech recognition ---------- */
+var SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+var rec=null,recording=false,wantStop=false;
+var raw=$('raw');
+if(!SR){$('warn').style.display='block';$('recBtn').disabled=true}
+
+function setStatus(t,on){$('statusTxt').textContent=t;$('status').classList.toggle('recording',!!on)}
+
+function startRec(){
+  rec=new SR();rec.lang=$('lang').value;rec.continuous=true;rec.interimResults=true;
+  rec.onstart=function(){recording=true;$('recBtn').textContent='⏹ إيقاف التسجيل';$('recBtn').classList.add('rec');$('recBtn').classList.remove('primary');setStatus('جارٍ الاستماع…',true)};
+  rec.onresult=function(e){
+    var interim='';
+    for(var i=e.resultIndex;i<e.results.length;i++){
+      var t=e.results[i][0].transcript;
+      if(e.results[i].isFinal){
+        t=t.trim(); if(t) raw.value+=(raw.value&&!/\n$/.test(raw.value)?'\n':'')+t;
+      }else interim+=t;
+    }
+    $('interim').textContent=interim;
+    raw.scrollTop=raw.scrollHeight;
+  };
+  rec.onerror=function(e){
+    if(e.error==='not-allowed'||e.error==='service-not-allowed'){wantStop=true;alert('لم يُسمح باستخدام الميكروفون. فعّل الإذن من إعدادات المتصفح.')}
+    else if(e.error==='no-speech'){/* keep going */}
+    else if(e.error!=='aborted'){setStatus('خطأ: '+e.error,false)}
+  };
+  rec.onend=function(){
+    $('interim').textContent='';
+    if(!wantStop){try{rec.start();return}catch(x){}} // Chrome ends sessions on silence; restart
+    recording=false;$('recBtn').textContent='🎙️ ابدأ التسجيل';$('recBtn').classList.remove('rec');$('recBtn').classList.add('primary');setStatus('متوقف',false);
+  };
+  wantStop=false;
+  try{rec.start()}catch(x){}
+}
+$('recBtn').onclick=function(){
+  if(recording){wantStop=true;rec.stop()}else startRec();
+};
+$('clearBtn').onclick=function(){if(!raw.value||confirm('مسح النص المفرّغ؟')){raw.value='';$('out').value='';renderDoc()}};
+
+/* ---------- Rewrite (rule-based, runs locally) ---------- */
+var FILLERS=['اممم','امم','ممم','مم','اها','ااا','آآ','اه','ايه','ايوه','يعني','كذا','طيب','خلاص','والله','بصراحة','على فكرة','زي ما تقول','um','uh','erm','like','you know'];
+function cleanSentence(s){
+  s=s.replace(/[ً-ٟـ]/g,'')            // tashkeel + tatweel
+     .replace(/\s+/g,' ').trim();
+  FILLERS.forEach(function(f){
+    s=s.replace(new RegExp('(^|\\s)'+f+'(?=\\s|$|[،,.؟?!])','gi'),' ');
+  });
+  // repeated consecutive words / bigrams
+  s=s.replace(/(^|\s)(\S+)(\s+\2)+(?=\s|$)/g,'$1$2');
+  s=s.replace(/(^|\s)(\S+\s+\S+)(\s+\2)+(?=\s|$)/g,'$1$2');
+  s=s.replace(/\s+([،,.؟?!])/g,'$1').replace(/\s+/g,' ').trim();
+  s=s.replace(/^[،,\s]+/,'');
+  return s;
+}
+function splitSentences(text){
+  var parts=[];
+  text.split(/\n+/).forEach(function(line){
+    line.split(/(?<=[.!؟?])\s+/).forEach(function(p){p=cleanSentence(p);if(p.length>1)parts.push(p)});
+  });
+  return parts;
+}
+function endMark(s){
+  if(/[.!؟?]$/.test(s)) return s;
+  return s+(/^(هل|ما|ماذا|لماذا|كيف|متى|أين|اين|من|كم|what|why|how|when|where|who|is|are|do|does|can)\s/i.test(s)?'؟':'.');
+}
+function rewrite(){
+  var sents=splitSentences(raw.value).map(endMark);
+  if(!sents.length){$('out').value='';renderDoc();return}
+  // drop exact duplicates
+  var seen={};sents=sents.filter(function(s){if(seen[s])return false;seen[s]=1;return true});
+  var mode=$('mode').value,res;
+  if(mode==='bullets') res=sents.map(function(s){return '• '+s}).join('\n');
+  else if(mode==='numbered') res=sents.map(function(s,i){return (i+1)+'. '+s}).join('\n');
+  else{
+    var arabic=/[؀-ۿ]/.test(raw.value);
+    if(mode==='formal'&&arabic){
+      var conn=['','كما ','ويُشار إلى أن ','فضلًا عن ذلك، ','وعليه، '];
+      sents=sents.map(function(s,i){return (i===0||/[؟?]$/.test(s))?s:conn[i%conn.length]+s});
+    }
+    var paras=[];
+    for(var i=0;i<sents.length;i+=3) paras.push(sents.slice(i,i+3).join(' '));
+    res=paras.join('\n\n');
+  }
+  $('out').value=res;renderDoc();
+}
+$('rewriteBtn').onclick=rewrite;
+
+/* ---------- Document model ---------- */
+function esc(s){return String(s).replace(/[&<>"]/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]})}
+function today(){try{return new Date().toLocaleDateString('ar-SA-u-ca-gregory',{year:'numeric',month:'long',day:'numeric'})}catch(e){return new Date().toDateString()}}
+// -> [{type:'p'|'ul'|'ol', items:[...]}]
+function blocks(){
+  var text=($('out').value||raw.value).trim();
+  if(!text) return [];
+  var res=[],cur=null;
+  text.split('\n').forEach(function(line){
+    line=line.trim();
+    if(!line){cur=null;return}
+    var b=line.match(/^[•\-*]\s+(.*)/),n=line.match(/^\d+[.)]\s+(.*)/);
+    var type=b?'ul':n?'ol':'p',txt=b?b[1]:n?n[1]:line;
+    if(type==='p'){res.push({type:'p',items:[txt]});cur=null;return}
+    if(!cur||cur.type!==type){cur={type:type,items:[]};res.push(cur)}
+    cur.items.push(txt);
+  });
+  return res;
+}
+function bodyHtml(){
+  var bl=blocks();
+  if(!bl.length) return '<p class="empty">سيظهر المستند هنا بعد التسجيل وإعادة الصياغة…</p>';
+  return bl.map(function(b){
+    if(b.type==='p') return '<p>'+esc(b.items[0])+'</p>';
+    return '<'+b.type+'>'+b.items.map(function(i){return '<li>'+esc(i)+'</li>'}).join('')+'</'+b.type+'>';
+  }).join('');
+}
+function renderDoc(){
+  var h='';
+  if(state.logo||$('entity').value.trim()){
+    h+='<div class="dhead">'+(state.logo?'<img src="'+state.logo+'" alt="">':'')+'<div class="ent">'+esc($('entity').value.trim())+'</div></div>';
+  }
+  h+='<h3>'+esc($('title').value.trim()||'عنوان المستند')+'</h3><div class="date">'+esc(today())+'</div>'+bodyHtml();
+  $('doc').innerHTML=h;
+}
+$('out').addEventListener('input',renderDoc);
+raw.addEventListener('input',function(){if(!$('out').value)renderDoc()});
+renderDoc();
+
+function fileName(ext){
+  var t=($('title').value.trim()||'مستند').replace(/[\\/:*?"<>|]+/g,'-').slice(0,60);
+  return t+'.'+ext;
+}
+function download(blob,name){
+  var a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;
+  document.body.appendChild(a);a.click();a.remove();setTimeout(function(){URL.revokeObjectURL(a.href)},2000);
+}
+function needText(){
+  if(!blocks().length){alert('لا يوجد نص بعد. سجّل صوتك أو اكتب نصًا أولًا.');return true}
+  return false;
+}
+
+/* ---------- PDF (browser print → Save as PDF; keeps Arabic shaping correct) ---------- */
+$('pdfBtn').onclick=function(){
+  if(needText()) return;
+  var old=document.title;document.title=fileName('pdf').replace(/\.pdf$/,'');
+  window.print();
+  setTimeout(function(){document.title=old},500);
+};
+
+/* ---------- Word (.doc as MHTML so the logo is embedded) ---------- */
+function wrapB64(s){return s.replace(/(.{76})/g,'$1\r\n')}
+$('docBtn').onclick=function(){
+  if(needText()) return;
+  var title=$('title').value.trim()||'مستند',ent=$('entity').value.trim();
+  var html='<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" dir="rtl"><head><meta charset="utf-8">'+
+    '<style>@page{size:A4;margin:2cm}body{font-family:Arial,sans-serif;direction:rtl;text-align:right}'+
+    'h1{font-size:24pt;color:#1a1a1f;margin:0}.d{color:#777;font-size:10pt}p,li{font-size:13pt;line-height:1.8}.e{font-size:15pt;color:#4b3a6b;font-weight:bold}</style></head><body dir="rtl">';
+  if(state.logo||ent){
+    var lh=60,lw=Math.round(lh*state.logoW/state.logoH);
+    html+='<table dir="rtl" width="100%" style="border-bottom:3px solid #7a5fa3;margin-bottom:14pt"><tr>'+
+      (state.logo?'<td width="'+(lw+20)+'"><img src="cid:logo.png" width="'+lw+'" height="'+lh+'"></td>':'')+
+      '<td class="e">'+esc(ent)+'</td></tr></table>';
+  }
+  html+='<h1>'+esc(title)+'</h1><p class="d">'+esc(today())+'</p>'+bodyHtml().replace(/<p class="empty">.*?<\/p>/,'')+'</body></html>';
+  var b='----=_NextPart_'+Date.now();
+  var mht='MIME-Version: 1.0\r\nContent-Type: multipart/related; boundary="'+b+'"; type="text/html"\r\n\r\n'+
+    '--'+b+'\r\nContent-Type: text/html; charset="utf-8"\r\nContent-Transfer-Encoding: base64\r\nContent-Location: file:///doc.htm\r\n\r\n'+
+    wrapB64(btoa(unescape(encodeURIComponent(html))))+'\r\n';
+  if(state.logo){
+    mht+='--'+b+'\r\nContent-Type: image/png\r\nContent-Transfer-Encoding: base64\r\nContent-Location: cid:logo.png\r\n\r\n'+
+      wrapB64(state.logo.split(',')[1])+'\r\n';
+  }
+  mht+='--'+b+'--';
+  download(new Blob([mht],{type:'application/msword'}),fileName('doc'));
+};
+
+/* ---------- PowerPoint ---------- */
+$('pptBtn').onclick=function(){
+  if(needText()) return;
+  if(typeof PptxGenJS==='undefined'){alert('تعذّر تحميل مكتبة PowerPoint. تحقق من اتصال الإنترنت وأعد المحاولة.');return}
+  var title=$('title').value.trim()||'مستند',ent=$('entity').value.trim();
+  var p=new PptxGenJS();p.layout='LAYOUT_WIDE'; // 13.33 x 7.5 in
+  p.rtlMode=true;
+  var FONT='Arial',PURPLE='7A5FA3',DARK='1A1A1F';
+  function logoOpts(x,y,maxW,maxH){
+    var r=state.logoW/state.logoH,w=maxW,h=w/r;if(h>maxH){h=maxH;w=h*r}
+    return {data:state.logo,x:x,y:y,w:w,h:h};
+  }
+  // Title slide
+  var s=p.addSlide();s.background={color:'FFFFFF'};
+  s.addShape(p.ShapeType.rect,{x:0,y:0,w:13.33,h:0.35,fill:{color:PURPLE}});
+  if(state.logo) s.addImage(logoOpts(10.4,0.8,2.4,1.4));
+  s.addText(title,{x:0.8,y:2.6,w:11.7,h:1.6,fontFace:FONT,fontSize:40,bold:true,color:DARK,align:'right',rtlMode:true,valign:'middle'});
+  if(ent) s.addText(ent,{x:0.8,y:4.3,w:11.7,h:0.6,fontFace:FONT,fontSize:22,color:PURPLE,align:'right',rtlMode:true});
+  s.addText(today(),{x:0.8,y:5.0,w:11.7,h:0.5,fontFace:FONT,fontSize:16,color:'777777',align:'right',rtlMode:true});
+  // Content slides: pack items until ~650 chars per slide
+  var items=[];
+  blocks().forEach(function(b){
+    b.items.forEach(function(t,i){items.push({t:t,list:b.type!=='p',num:b.type==='ol'?i+1:0})});
+  });
+  var slides=[],cur=[],len=0;
+  items.forEach(function(it){
+    if(cur.length&&(len+it.t.length>650||cur.length>=6)){slides.push(cur);cur=[];len=0}
+    cur.push(it);len+=it.t.length;
+  });
+  if(cur.length) slides.push(cur);
+  slides.forEach(function(group,idx){
+    var sl=p.addSlide();sl.background={color:'FFFFFF'};
+    sl.addShape(p.ShapeType.rect,{x:0,y:0,w:13.33,h:0.2,fill:{color:PURPLE}});
+    if(state.logo) sl.addImage(logoOpts(11.6,0.35,1.2,0.7));
+    sl.addText(title,{x:0.6,y:0.35,w:10.8,h:0.7,fontFace:FONT,fontSize:22,bold:true,color:PURPLE,align:'right',rtlMode:true,valign:'middle'});
+    var runs=[];
+    group.forEach(function(it){
+      var txt=it.num?it.t:it.t;
+      var o={fontFace:FONT,fontSize:it.list?22:24,color:DARK,align:'right',rtlMode:true,breakLine:true,paraSpaceAfter:12};
+      if(it.list) o.bullet=it.num?{type:'number',numberStartAt:it.num}:true;
+      runs.push({text:txt,options:o});
+    });
+    sl.addText(runs,{x:0.6,y:1.3,w:12.1,h:5.5,valign:'top',rtlMode:true,align:'right'});
+    sl.addText((idx+1)+' / '+slides.length,{x:0.6,y:7.0,w:2,h:0.35,fontFace:FONT,fontSize:12,color:'999999',align:'left'});
+  });
+  p.writeFile({fileName:fileName('pptx')});
+};
+})();
+</script>
+</body>
+</html>
